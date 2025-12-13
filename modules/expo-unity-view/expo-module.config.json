@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "modules": ["ExpoUnityViewModule"]
+  },
+  "android": {
+    "modules": ["com.shogo0x2e.uaalforexpoexample.unityview.ExpoUnityViewModule"]
+  }
+}
