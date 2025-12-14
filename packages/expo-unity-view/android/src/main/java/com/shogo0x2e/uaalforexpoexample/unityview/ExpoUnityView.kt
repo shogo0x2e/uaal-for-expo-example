@@ -10,7 +10,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import expo.modules.kotlin.AppContext
 import expo.modules.kotlin.views.ExpoView
 
-private const val PLACEHOLDER_COLOR: Int = Color.RED
+private const val PLACEHOLDER_COLOR: Int = Color.GREEN
 private const val TAG = "ExpoUnityView"
 
 class ExpoUnityView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
