@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { ExpoUnityView } from 'expo-unity-view';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -50,10 +51,20 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
+      <ExpoUnityView>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="unity-screen" options={{ 
+            // ExpoUnityView は Stack の背景として描画されるので
+            // UnityView を見えるようにするには透明化が必須
+            contentStyle: {
+              backgroundColor: 'transparent',
+            }, 
+            headerShown: false 
+          }} />
+        </Stack>
+      </ExpoUnityView>
     </ThemeProvider>
   );
 }

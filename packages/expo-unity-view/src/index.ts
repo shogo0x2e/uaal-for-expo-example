@@ -2,4 +2,5 @@
 // and on native platforms to ExpoUnityViewModule.ts
 export { default } from './ExpoUnityViewModule';
 export { default as ExpoUnityView } from './ExpoUnityView';
+export { sendUnityMessage, addUnityMessageListener } from './ExpoUnityViewModule';
 export * from  './ExpoUnityView.types';

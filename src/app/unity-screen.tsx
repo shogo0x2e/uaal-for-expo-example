@@ -1,20 +1,22 @@
 import { Button, StyleSheet } from 'react-native';
 
-import EditScreenInfo from '@/components/EditScreenInfo';
-import { Text, View } from '@/components/Themed';
+import { View } from '@/components/Themed';
+import { useUnityBackdrop } from '@/hooks/use-unity-backdrop';
 import { useRouter } from 'expo-router';
 
-export default function TabOneScreen() {
+export default function UnityScreen() {
+
   const router = useRouter();
+  const { Backdrop } = useUnityBackdrop();
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tab One</Text>
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <EditScreenInfo path="app/(tabs)/index.tsx" />
+      <Backdrop />
       <Button
-        title="unity-view に移る"
-        onPress={() => router.push('/unity-screen')}
+        title="戻る"
+        onPress={() => {
+          router.back();
+        }}
       />
     </View>
   );
@@ -22,6 +24,7 @@ export default function TabOneScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: 'transparent',
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
