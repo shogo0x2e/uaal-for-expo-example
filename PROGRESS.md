@@ -407,3 +407,44 @@ Unity 側から秒数（timer）メッセージが送られているが、React 
 
 ### Notes
 - 既存の `tools:replace` がある場合は属性に追記する。
+
+## [2025-12-22] make ios/android で preprocess を通しつつ引数を転送
+
+### Context
+`make ios`/`make android` で preprocess を通したいが、`--device` などの引数を npm スクリプトへ渡せなかった。
+
+### Decision
+`makefile` に `IOS_ARGS`/`ANDROID_ARGS` を追加し、`npm run ios`/`npm run android` を `-- $(IOS_ARGS)`/`-- $(ANDROID_ARGS)` で呼び出して引数を転送できるようにする。
+
+### Alternatives
+- `npm run ios -- --device "SK_iPhone"` を直接実行: preprocess を通したい要件に合わないため不採用。
+- `make ios -- --device ...` で渡す: make の引数解釈によりターゲットとして扱われるため不採用。
+
+### Consequences
+`make ios IOS_ARGS='--device "SK_iPhone"'` のように変数で引数を渡せる。未指定時は従来どおり動作。
+
+### Checks
+- `make ios IOS_ARGS='--device "SK_iPhone"'` で preprocess が走った後に iOS 実行が開始されること。
+
+### Notes
+- 必要なら `ANDROID_ARGS` も同様に利用できる。
+
+## [2025-12-22] ios-preprocess で Podfile 未生成時に prebuild を自動実行
+
+### Context
+クローン直後は `ios/Podfile` が存在せず、`ios-preprocess` の Podfile パッチが失敗する。
+
+### Decision
+`ios-preprocess` 内で `ios/Podfile` の存在をチェックし、無ければ `npx expo prebuild --clean --platform ios` を自動実行する。
+
+### Alternatives
+- 手動で prebuild を実行: 手順漏れが発生しやすいため不採用。
+
+### Consequences
+クローン直後でも `make ios` が前処理で止まりにくくなる。
+
+### Checks
+- `make ios-preprocess` が Podfile 未生成状態でも通ること。
+
+### Notes
+- prebuild が走るのは Podfile が無い場合のみ。
