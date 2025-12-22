@@ -346,3 +346,24 @@ Unity 画面に戻るボタンしかなく、React Native から Unity の見た
 
 ### Notes
 - 送信する色は Unity 側で定義済みの `red/green/blue/yellow` に合わせた。
+
+## [2025-12-22] Unity 送信メッセージを RN オーバーレイに表示
+
+### Context
+Unity 側から秒数（timer）メッセージが送られているが、React Native 側で可視化できていなかった。
+
+### Decision
+- `unity-screen` に Unity メッセージ表示テキストを追加し、`addUnityMessageListener` で最新メッセージを state に反映する。
+- 表示位置は色ボタンと同じオーバーレイ領域（画面下）に配置する。
+
+### Alternatives
+- Toast やログのみ: 画面内で確認できないため不採用。
+
+### Consequences
+- Unity からの任意メッセージが UI に出るため、必要に応じてフォーマットやフィルタが必要になる可能性がある。
+
+### Checks
+- Unity の timer メッセージが RN の画面下に表示されること。
+
+### Notes
+- `unityMessage` の payload は現在文字列のみ。

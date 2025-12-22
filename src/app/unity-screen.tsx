@@ -1,15 +1,24 @@
 import { Button, StyleSheet } from 'react-native';
 
-import { View } from '@/components/Themed';
+import { Text, View } from '@/components/Themed';
 import { useUnityBackdrop } from '@/hooks/use-unity-backdrop';
 import { useRouter } from 'expo-router';
-import { sendUnityMessage } from 'expo-unity-view';
+import { addUnityMessageListener, sendUnityMessage } from 'expo-unity-view';
+import { useEffect, useState } from 'react';
 
 export default function UnityScreen() {
 
   const router = useRouter();
   const { Backdrop } = useUnityBackdrop();
   const colors = ['red', 'green', 'blue', 'yellow'];
+  const [unityMessage, setUnityMessage] = useState<string>('');
+
+  useEffect(() => {
+    const unsubscribe = addUnityMessageListener((event) => {
+      setUnityMessage(event.message);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const onChangeColor = (color: string) => {
     sendUnityMessage({
@@ -23,6 +32,7 @@ export default function UnityScreen() {
     <View style={styles.container}>
       <Backdrop />
       <View style={styles.controlPanel}>
+        <Text style={styles.messageText}>{unityMessage || 'Unity timer: --'}</Text>
         <View style={styles.buttonGroup}>
           {colors.map((color) => (
             <View key={color} style={styles.buttonItem}>
@@ -52,6 +62,12 @@ const styles = StyleSheet.create({
   controlPanel: {
     width: '100%',
     maxWidth: 260,
+  },
+  messageText: {
+    textAlign: 'center',
+    marginBottom: 12,
+    fontSize: 16,
+    fontWeight: '600',
   },
   buttonGroup: {
     width: '100%',
