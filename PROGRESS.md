@@ -324,3 +324,25 @@ Podfile の post_install で Unity Data のコピー用 build phase を追加し
 
 ### Notes
 - xcodeproj gem を利用して build phase を追加する。
+
+## [2025-12-22] Unity 色変更の RN UI を追加
+
+### Context
+Unity 画面に戻るボタンしかなく、React Native から Unity の見た目を操作できるサンプルが不足していた。
+
+### Decision
+- `unity-screen` に色変更ボタンを追加し、`sendUnityMessage` 経由で Unity の `ChangeColor` を呼び出す。
+- Unity 側の `ColorController.ChangeColor` を public にして UnitySendMessage で呼び出せるようにする。
+
+### Alternatives
+- React 側の UI を追加せず、Unity 側のみで色変更: チュートリアル用途として操作性が低いため不採用。
+
+### Consequences
+- Unity の GameObject 名（`Cube`）とメソッド名（`ChangeColor`）に依存する。
+- Unity export を更新する場合、スクリプトの public 変更が反映される。
+
+### Checks
+- Unity 画面で色ボタンを押すと Cube の色が変わること。
+
+### Notes
+- 送信する色は Unity 側で定義済みの `red/green/blue/yellow` に合わせた。

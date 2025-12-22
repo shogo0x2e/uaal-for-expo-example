@@ -5,7 +5,7 @@ public class ColorController : MonoBehaviour
     [SerializeField]
     private GameObject targetObject;
 
-    private void ChangeColor(string colorName)
+    public void ChangeColor(string colorName)
     {
         Color newColor;
 
