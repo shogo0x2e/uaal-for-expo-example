@@ -1,10 +1,16 @@
 package com.shogo0x2e.uaalforexpoexample.unityview
 
-import android.util.Log
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import kotlinx.coroutines.launch
 
 class ExpoUnityViewModule : Module() {
+  private val unityMessageListener: (Map<String, Any?>) -> Unit = { payload ->
+    appContext.mainQueue.launch {
+      sendEvent("unityMessage", payload)
+    }
+  }
+
   // Each module class must implement the definition function. The definition consists of components
   // that describes the module's functionality and behavior.
   // See https://docs.expo.dev/modules/module-api for more details about available components.
@@ -16,18 +22,31 @@ class ExpoUnityViewModule : Module() {
 
     Events("unityMessage")
 
+    OnCreate {
+      UnityToReactBridge.setListener(unityMessageListener)
+    }
+
+    OnDestroy {
+      UnityToReactBridge.clearListener(unityMessageListener)
+    }
+
     AsyncFunction("sendUnityMessage") { message: Map<String, Any?> ->
-      val objectName = message["objectName"]
-      val methodName = message["methodName"]
-      val body = message["message"]
-      Log.d(
-        "ExpoUnityView",
-        "sendUnityMessage objectName=$objectName methodName=$methodName message=$body // TODO: UnitySendMessage"
-      )
+      val objectName = (message["objectName"] as? String).orEmpty().trim()
+      val methodName = (message["methodName"] as? String).orEmpty().trim()
+      val body = (message["message"] as? String).orEmpty()
+
+      require(objectName.isNotEmpty()) { "objectName is required" }
+      require(methodName.isNotEmpty()) { "methodName is required" }
+
+      if (!UnityManager.isInitialized()) {
+        return@AsyncFunction
+      }
+
+      UnityManager.sendMessage(objectName, methodName, body)
     }
 
     Function("addUnityMessageListener") {
-      Log.d("ExpoUnityView", "addUnityMessageListener // TODO: Unityからの受信をブリッジ")
+      // Listener is managed in OnCreate/OnDestroy.
     }
 
     // No props/events on the view; pure rendering surface.

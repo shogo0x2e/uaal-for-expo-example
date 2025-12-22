@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+/packages/expo-unity-view/android/unityLibrary/**
+!/packages/expo-unity-view/android/unityLibrary/.keep

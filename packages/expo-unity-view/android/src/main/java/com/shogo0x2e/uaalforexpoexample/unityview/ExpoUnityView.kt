@@ -1,43 +1,55 @@
 package com.shogo0x2e.uaalforexpoexample.unityview
 
 import android.content.Context
-import android.graphics.Color
-import android.graphics.PixelFormat
-import android.util.Log
-import android.view.SurfaceHolder
-import android.view.SurfaceView
-import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.View
+import android.view.ViewGroup.LayoutParams
 import expo.modules.kotlin.AppContext
 import expo.modules.kotlin.views.ExpoView
 
-private const val PLACEHOLDER_COLOR: Int = Color.GREEN
-private const val TAG = "ExpoUnityView"
-
 class ExpoUnityView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
-  private val surfaceView: SurfaceView = SurfaceView(context).apply {
-    layoutParams = LayoutParams(MATCH_PARENT, MATCH_PARENT)
-    holder.setFormat(PixelFormat.TRANSLUCENT)
-    setBackgroundColor(PLACEHOLDER_COLOR)
-    setWillNotDraw(false)
-    holder.addCallback(object : SurfaceHolder.Callback {
-      override fun surfaceCreated(holder: SurfaceHolder) {
-        holder.lockCanvas()?.let { canvas ->
-          canvas.drawColor(PLACEHOLDER_COLOR) // dummy clear until Unity is wired in
-          holder.unlockCanvasAndPost(canvas)
-        }
-        Log.d(TAG, "surfaceCreated: placeholder drawn")
-      }
-      override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) = Unit
-      override fun surfaceDestroyed(holder: SurfaceHolder) = Unit
-    })
+  private var unityView: View? = null
 
-    // Let overlay React children handle input
-    isClickable = false
-    isFocusable = false
-    isFocusableInTouchMode = false
+  override fun onAttachedToWindow() {
+    super.onAttachedToWindow()
+    UnityManager.ensureInitialized(context)
+    attachUnityView()
+    UnityManager.resume()
+    post {
+      UnityManager.windowFocusChanged(true)
+      unityView?.requestFocus()
+    }
   }
 
-  init {
-    addView(surfaceView)
+  override fun onDetachedFromWindow() {
+    UnityManager.pause()
+    UnityManager.windowFocusChanged(false)
+    detachUnityView()
+    super.onDetachedFromWindow()
+  }
+
+  override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+    super.onWindowFocusChanged(hasWindowFocus)
+    UnityManager.windowFocusChanged(hasWindowFocus)
+  }
+
+  private fun attachUnityView() {
+    val playerView = UnityManager.obtainView(context)
+    if (playerView.parent === this) {
+      unityView = playerView
+      return
+    }
+    removeAllViews()
+    unityView = playerView
+    playerView.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+    addView(playerView)
+  }
+
+  private fun detachUnityView() {
+    unityView?.let { view ->
+      if (view.parent === this) {
+        removeView(view)
+      }
+    }
+    unityView = null
   }
 }

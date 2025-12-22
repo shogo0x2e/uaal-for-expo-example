@@ -57,3 +57,95 @@ Android ビルドで `com.uaalforexpoexample.BuildConfig` が見つからず失�
 - 依存参照を `expo-unity-view: file:packages/expo-unity-view` に修正し、bundler で解決できるように戻した（2025-12-14）。
 - ルート `package.json` に `workspaces: ["packages/*"]` を追加し、依存を `workspace:*` で解決するワークスペース運用に切り替え（2025-12-14）。
 - Unity 画面用の遷移バックドロップ Hook `useUnityBackdrop` を追加し、`unity-screen` に適用。遷移完了時に黒→透明にフェード（2025-12-14）。
+
+## [2025-12-22] Android Unity 管理シングルトン導入
+
+### Context
+チュートリアル向けに最小構成の Unity 管理を Kotlin 側へ実装し、Expo 側と統合して Android 実行まで確認できる状態にする。
+
+### Decision
+- `UnityManager`（シングルトン）を新設し、`UnityPlayerForActivityOrService` の生成・保持と View 取得、ライフサイクル呼び出しを一本化。
+- `ExpoUnityView` は `UnityManager` を使って attach/detach と resume/pause を行うだけの最小実装に変更。
+- Unity → React のメッセージ橋渡しとして `UnityToReactBridge.emitMessage` を追加し、Expo モジュールの `unityMessage` イベントへ転送。
+- Android ビルドに `:unityLibrary` を組み込み、`unity-classes.jar` を依存に追加。
+
+### Alternatives
+- 既存の SurfaceView ダミー描画を維持: 実際の Unity 初期化を説明できないため不採用。
+- Expo 側から明示的に `initializeUnity` を呼ぶ構成: チュートリアルの導線が増えるため不採用。
+
+### Consequences
+- `ExpoUnityView` を描画すると Unity が初期化されるため、Unity ネイティブライブラリが必須になる。
+- Unity → React のメッセージはイベントリスナーが無い場合は破棄される（簡易実装）。
+
+### Checks
+- `npm run android` でビルド・起動確認。
+
+### Notes
+- `UnitySendMessage` は `sendUnityMessage` 経由で利用（Unity 側の GameObject/Method 名は JS 側で指定）。
+
+## [2025-12-22] UnityLibrary 再生成に備えたパッチスクリプト追加
+
+### Context
+Unity の再ビルドで `unityLibrary` が再生成されるため、生成物に入れた修正が消えるリスクがある。Android/iOS 共通でパッチ適用の導線を確保したい。
+
+### Decision
+- `scripts/patch-unity-library.sh` を追加し、Unity エクスポート後に実行できるパッチ処理を一本化。
+- Android は `unityLibrary/unityLibrary/build.gradle` に必要な設定を自動注入する。
+- iOS は UnityLibrary が存在する場合の導線だけ先に用意し、パッチ内容は将来追加とした。
+- Makefile に `unity:patch` を追加して運用を統一。
+
+### Alternatives
+- Unity 側テンプレートに埋め込む: 初期の手間が増えるため今回は保留。
+- ルート gradle.properties に Unity 設定を複製: マシン依存パスが入りやすいため不採用。
+
+### Consequences
+- Unity 再生成後でもパッチ適用が可能になる。
+- iOS はパッチ内容が決まるまでスクリプトは no-op になる。
+
+### Checks
+- `make unity:patch` が正常に実行できること。
+
+### Notes
+- `unity:patch` は `unity-patch` の別名として定義。
+
+## [2025-12-22] android/ios 実行時に unity:patch を自動実行
+
+### Context
+手動で `unity:patch` を忘れると Unity 再生成後のビルドが壊れる可能性があるため、日常の `make android` / `make ios` に自動適用したい。
+
+### Decision
+- Makefile の `android` と `ios` ターゲットを `unity-patch` に依存させ、実行前に自動でパッチを当てるようにした。
+
+### Alternatives
+- README で手順を明記して手動運用: 手順漏れが起きやすいため不採用。
+
+### Consequences
+- `make android` / `make ios` 実行時に毎回パッチが走る（冪等で副作用なし）。
+
+### Checks
+- `make android` 実行時に `scripts/patch-unity-library.sh` が先に実行されること。
+
+### Notes
+- iOS 側のパッチは現状 no-op で、UnityLibrary が検出されると将来拡張可能。
+
+## [2025-12-22] iOS パッチを別スクリプトへ分離
+
+### Context
+UnityLibrary の iOS 側パッチは内容が未確定だが、将来的に追加する前提で運用しやすくしておきたい。
+
+### Decision
+- `scripts/patch-unity-library-ios.sh` を新設し、iOS 側のパッチは別スクリプトで管理する。
+- `scripts/patch-unity-library.sh` から iOS スクリプトを呼び出す方式に変更。
+
+### Alternatives
+- 既存スクリプト内に iOS ロジックを保持: 将来的な肥大化を避けるため不採用。
+
+### Consequences
+- iOS パッチの追加が独立して行える。
+- iOS スクリプトが無い場合はスキップされる。
+
+### Checks
+- `make unity-patch` 実行時に iOS スクリプトが呼ばれること。
+
+### Notes
+- iOS 側パッチ内容は未定で、現状は no-op。

@@ -1,4 +1,4 @@
-.PHONY: prebuild android ios sync
+.PHONY: prebuild android ios sync unity-patch
 
 prebuild:
 	npm install
@@ -8,8 +8,11 @@ sync:
 	npm install
 	cd packages/expo-unity-view && npm run build
 
-android:
+unity-patch:
+	./scripts/patch-unity-library.sh
+
+android: unity-patch
 	npm run android
 
-ios: 
+ios: unity-patch
 	npm run ios
