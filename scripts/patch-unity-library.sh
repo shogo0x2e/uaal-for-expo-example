@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ANDROID_GRADLE_FILE="$ROOT_DIR/packages/expo-unity-view/android/unityLibrary/unityLibrary/build.gradle"
+ANDROID_SETTINGS_FILE="$ROOT_DIR/android/settings.gradle"
 
 patch_android() {
   if [[ ! -f "$ANDROID_GRADLE_FILE" ]]; then
@@ -54,7 +55,33 @@ if text != original:
 PY
 }
 
+patch_android_settings() {
+  if [[ ! -f "$ANDROID_SETTINGS_FILE" ]]; then
+    echo "[unity:patch][android] android/settings.gradle not found, skipping." >&2
+    return 0
+  fi
+
+  SETTINGS_FILE="$ANDROID_SETTINGS_FILE" python3 - <<'PY'
+import os
+from pathlib import Path
+
+path = Path(os.environ["SETTINGS_FILE"])
+text = path.read_text()
+
+marker = "include ':unityLibrary'"
+if marker in text:
+    print("[unity:patch][android] settings.gradle already includes :unityLibrary")
+else:
+    addition = "\n// Added by unity integration: include Unity export for expo-unity-view\n"
+    addition += "include ':unityLibrary'\n"
+    addition += "project(':unityLibrary').projectDir = new File(rootDir, '../packages/expo-unity-view/android/unityLibrary/unityLibrary')\n"
+    path.write_text(text + addition)
+    print("[unity:patch][android] Added :unityLibrary to settings.gradle")
+PY
+}
+
 patch_android
+patch_android_settings
 if [[ -x "$ROOT_DIR/scripts/patch-unity-library-ios.sh" ]]; then
   "$ROOT_DIR/scripts/patch-unity-library-ios.sh"
 else

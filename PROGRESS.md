@@ -367,3 +367,23 @@ Unity 側から秒数（timer）メッセージが送られているが、React 
 
 ### Notes
 - `unityMessage` の payload は現在文字列のみ。
+
+## [2025-12-22] Android settings.gradle の :unityLibrary 参照を unity-patch で自動化
+
+### Context
+クローン環境で `:unityLibrary` の include が `android/settings.gradle` に入っておらず、`expo-unity-view` の依存解決に失敗した。
+
+### Decision
+`unity-patch` に settings.gradle のチェック/追記処理を追加し、未適用なら自動で `:unityLibrary` を include する。
+
+### Alternatives
+- 手動で settings.gradle を編集: クローンや prebuild の度に漏れやすいので不採用。
+
+### Consequences
+`unity-patch` 実行で Android プロジェクトの Unity 参照が必ず揃う。
+
+### Checks
+- `scripts/patch-unity-library.sh` 実行時に settings.gradle へ追記されること。
+
+### Notes
+- 追記先は `../packages/expo-unity-view/android/unityLibrary/unityLibrary`。
