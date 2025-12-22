@@ -387,3 +387,23 @@ Unity 側から秒数（timer）メッセージが送られているが、React 
 
 ### Notes
 - 追記先は `../packages/expo-unity-view/android/unityLibrary/unityLibrary`。
+
+## [2025-12-22] Android Manifest の enableOnBackInvokedCallback 競合を unity-patch で自動解消
+
+### Context
+クローン環境で `android:enableOnBackInvokedCallback` の値が `app` と `unityLibrary` で競合し、manifest merger が失敗した。
+
+### Decision
+`unity-patch` に `android/app/src/main/AndroidManifest.xml` の自動パッチを追加し、`tools:replace="android:enableOnBackInvokedCallback"` と `xmlns:tools` を付与する。
+
+### Alternatives
+- 手動で manifest を編集: 再生成やクローン時に漏れやすいため不採用。
+
+### Consequences
+`unity-patch` 実行で manifest merge の競合が回避される。
+
+### Checks
+- `npm run android` で manifest merge エラーが出ないこと。
+
+### Notes
+- 既存の `tools:replace` がある場合は属性に追記する。

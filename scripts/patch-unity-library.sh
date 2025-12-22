@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ANDROID_GRADLE_FILE="$ROOT_DIR/packages/expo-unity-view/android/unityLibrary/unityLibrary/build.gradle"
 ANDROID_SETTINGS_FILE="$ROOT_DIR/android/settings.gradle"
+ANDROID_APP_MANIFEST="$ROOT_DIR/android/app/src/main/AndroidManifest.xml"
 
 patch_android() {
   if [[ ! -f "$ANDROID_GRADLE_FILE" ]]; then
@@ -80,8 +81,99 @@ else:
 PY
 }
 
+patch_android_manifest() {
+  if [[ ! -f "$ANDROID_APP_MANIFEST" ]]; then
+    echo "[unity:patch][android] android/app/src/main/AndroidManifest.xml not found, skipping." >&2
+    return 0
+  fi
+
+  MANIFEST_FILE="$ANDROID_APP_MANIFEST" python3 - <<'PY'
+import os
+import re
+from pathlib import Path
+
+path = Path(os.environ["MANIFEST_FILE"])
+text = path.read_text()
+original = text
+
+needs_tools = 'xmlns:tools=' not in text
+needs_replace = 'tools:replace="android:enableOnBackInvokedCallback"' not in text
+
+def ensure_tools_namespace(src: str) -> str:
+    if 'xmlns:tools=' in src:
+        return src
+    match = re.search(r'<manifest\\s+([^>]*?)>', src, re.DOTALL)
+    if not match:
+        # Fallback: string-based insertion
+        start = src.find("<manifest")
+        if start == -1:
+            return src
+        end = src.find(">", start)
+        if end == -1:
+            return src
+        return src[:end] + ' xmlns:tools="http://schemas.android.com/tools"' + src[end:]
+    attrs = match.group(1)
+    if 'xmlns:tools=' not in attrs:
+        attrs = attrs.strip() + ' xmlns:tools="http://schemas.android.com/tools"'
+    return src.replace(match.group(0), f"<manifest {attrs}>", 1)
+
+def ensure_tools_replace(src: str) -> str:
+    match = re.search(r'<application\\b([^>]*)>', src, re.DOTALL)
+    if not match:
+        # Fallback: string-based insertion
+        start = src.find("<application")
+        if start == -1:
+            return src
+        end = src.find(">", start)
+        if end == -1:
+            return src
+        head = src[start:end]
+        if 'tools:replace=' in head:
+            # append to existing tools:replace
+            def repl_attr(h):
+                m = re.search(r'tools:replace="([^"]*)"', h)
+                if not m:
+                    return h
+                value = m.group(1)
+                if "android:enableOnBackInvokedCallback" in value:
+                    return h
+                return h.replace(m.group(0), f'tools:replace="{value},android:enableOnBackInvokedCallback"')
+            head = repl_attr(head)
+        else:
+            head = head + ' tools:replace="android:enableOnBackInvokedCallback"'
+        return src[:start] + head + src[end:]
+    attrs = match.group(1)
+    if 'tools:replace=' in attrs:
+        def repl(m):
+            value = m.group(1)
+            if 'android:enableOnBackInvokedCallback' in value:
+                return m.group(0)
+            return f'tools:replace="{value},android:enableOnBackInvokedCallback"'
+        new_attrs = re.sub(r'tools:replace="([^"]*)"', repl, attrs, count=1)
+    else:
+        new_attrs = attrs + ' tools:replace="android:enableOnBackInvokedCallback"'
+    return src.replace(match.group(0), f"<application{new_attrs}>", 1)
+
+if not needs_tools and not needs_replace:
+    print("[unity:patch][android] AndroidManifest.xml already patched")
+    raise SystemExit(0)
+
+text = ensure_tools_namespace(text)
+text = ensure_tools_replace(text)
+
+if text != original:
+    path.write_text(text)
+    print("[unity:patch][android] Patched AndroidManifest.xml (tools:replace enableOnBackInvokedCallback)")
+else:
+    # Should not normally happen when needs_tools/needs_replace is true,
+    # but keep a safe fallback.
+    print("[unity:patch][android] AndroidManifest.xml unchanged (unexpected)")
+PY
+}
+
 patch_android
 patch_android_settings
+patch_android_manifest
 if [[ -x "$ROOT_DIR/scripts/patch-unity-library-ios.sh" ]]; then
   "$ROOT_DIR/scripts/patch-unity-library-ios.sh"
 else
