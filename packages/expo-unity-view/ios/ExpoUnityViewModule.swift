@@ -1,4 +1,5 @@
 import ExpoModulesCore
+import UnityFrameworkWrapper
 
 public class ExpoUnityViewModule: Module {
   // Each module class must implement the definition function. The definition consists of components
@@ -12,18 +13,44 @@ public class ExpoUnityViewModule: Module {
 
     Events("unityMessage")
 
+    OnCreate {
+      UnityRuntime.shared.setDelegate(self)
+    }
+
+    OnDestroy {
+      UnityRuntime.shared.setDelegate(nil)
+    }
+
     AsyncFunction("sendUnityMessage") { (message: [String: Any?]) in
-      let objectName = message["objectName"] ?? "nil"
-      let methodName = message["methodName"] ?? "nil"
-      let body = message["message"] ?? "nil"
-      print("ExpoUnityView sendUnityMessage objectName=\(objectName) methodName=\(methodName) message=\(body) // TODO: UnitySendMessage")
+      let objectName = (message["objectName"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+      let methodName = (message["methodName"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+      let body = (message["message"] as? String ?? "")
+
+      if objectName.isEmpty {
+        throw NSError(domain: "ExpoUnityView", code: 1, userInfo: [NSLocalizedDescriptionKey: "objectName is required"])
+      }
+      if methodName.isEmpty {
+        throw NSError(domain: "ExpoUnityView", code: 2, userInfo: [NSLocalizedDescriptionKey: "methodName is required"])
+      }
+
+      if !UnityRuntime.shared.isInitialized() {
+        return
+      }
+
+      _ = UnityRuntime.shared.sendMessage(objectName: objectName, methodName: methodName, message: body)
     }
 
     Function("addUnityMessageListener") {
-      print("ExpoUnityView addUnityMessageListener // TODO: Unityからの受信をブリッジ")
+      // Listener is managed in OnCreate/OnDestroy.
     }
 
     // View only; props なし
     View(ExpoUnityView.self) { }
+  }
+}
+
+extension ExpoUnityViewModule: UnityRuntimeDelegate {
+  public func unityRuntime(_ runtime: UnityRuntime, didReceiveMessage message: String) {
+    sendEvent("unityMessage", ["message": message])
   }
 }

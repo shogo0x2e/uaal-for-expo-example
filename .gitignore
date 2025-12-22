@@ -42,3 +42,7 @@ yarn-error.*
 
 /packages/expo-unity-view/android/unityLibrary/**
 !/packages/expo-unity-view/android/unityLibrary/.keep
+/packages/expo-unity-view/ios/UnityFrameworkWrapper/Unity/**
+!/packages/expo-unity-view/ios/UnityFrameworkWrapper/Unity/.keep
+
+/artifacts

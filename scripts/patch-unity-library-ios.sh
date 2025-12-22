@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-IOS_UNITY_DIR="$ROOT_DIR/packages/expo-unity-view/ios/UnityLibrary"
+IOS_UNITY_DIR="$ROOT_DIR/packages/expo-unity-view/ios/UnityFrameworkWrapper/Unity"
 
 if [[ ! -d "$IOS_UNITY_DIR" ]]; then
   echo "[unity:patch][ios] UnityLibrary not found, skipping." >&2

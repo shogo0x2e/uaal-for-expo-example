@@ -149,3 +149,178 @@ UnityLibrary の iOS 側パッチは内容が未確定だが、将来的に追�
 
 ### Notes
 - iOS 側パッチ内容は未定で、現状は no-op。
+
+## [2025-12-22] iOS の簡易 Unity 管理実装を追加
+
+### Context
+Android 側に続き、iOS 側でも Unity を最小構成で管理できる実装を追加したい。
+
+### Decision
+- `UnityRuntime` を追加し、UnityFramework が存在する場合のみ起動・View 取得・メッセージ送信を行う。
+- `ExpoUnityView` は Unity の rootView を貼り付けるだけの最小ビューに変更。
+- `ExpoUnityViewModule` で `unityMessage` をイベント転送し、`sendUnityMessage` を UnitySendMessage 相当に実装。
+
+### Alternatives
+- 既存の Metal プレースホルダを維持: iOS で Unity 管理の説明ができないため不採用。
+- UnityFrameworkWrapper を丸ごと移植: チュートリアルの粒度としては重いため簡易実装を採用。
+
+### Consequences
+- UnityFramework が存在しない環境でもビルド可能（`canImport(UnityFramework)` で無効化）。
+- UnityFramework が組み込まれている場合は簡易的に Unity 画面が表示される。
+
+### Checks
+- `expo run:ios` でビルドできること（UnityFramework 未導入時もコンパイル可能）。
+
+### Notes
+- Unity → React のメッセージは `NativeCallProxy` 経由で `unityMessage` に転送。
+
+## [2025-12-22] iOS UnityFrameworkWrapper Pod を導入
+
+### Context
+iOS の Unity ビルド成果物を `Unity` ディレクトリに集約し、Pod 経由で取り込めるようにしたい。
+
+### Decision
+- `UnityFrameworkWrapper` Pod を追加し、`Unity/UnityFramework.framework` と `Unity/Data` を取り込む構成に変更。
+- `ExpoUnityView` 側は `UnityFrameworkWrapper` を依存追加し、`UnityRuntime` を同 Pod 内に移動。
+- `UnityFrameworkWrapper/Unity` と `UnityFrameworkWrapper/Unity/Data` を `.keep` で保持。
+
+### Alternatives
+- Frameworks へ手動配置: 手順が属人化しやすいため不採用。
+
+### Consequences
+- Unity の iOS 出力先が `packages/expo-unity-view/ios/UnityFrameworkWrapper/Unity` に固定される。
+- `pod install` 時に Data が Resources へコピーされる。
+
+### Checks
+- `pod install` が通ること。
+- `expo run:ios` でビルドできること（UnityFramework 未配置ならリンクエラーになる）。
+
+### Notes
+- `scripts/patch-unity-library-ios.sh` は UnityFrameworkWrapper/Unity を参照する。
+
+## [2025-12-22] iOS Unity ランタイムの生成/配置を make ios の前処理に追加
+
+### Context
+`UnityFrameworkWrapper` を導入したため、iOS の UnityFramework.framework + Data が未配置だとビルドが失敗する。
+
+### Decision
+- `scripts/ensure-unity-runtime-ios.sh` を追加し、Unity の iOS エクスポートから UnityFramework.framework と Data を生成・配置する。
+- `make ios` の前処理として `ios-preprocess` を追加し、毎回自動で実行する。
+
+### Alternatives
+- 手動で UnityFramework.framework を配置: 手順漏れが起きやすいため不採用。
+
+### Consequences
+- iOS ビルド前に Unity export が無い場合はエラーになる（`UNITY_EXPORT_PATH` を設定する必要あり）。
+
+### Checks
+- `make ios` で `ensure-unity-runtime-ios.sh` が先に実行されること。
+
+### Notes
+- `UNITY_EXPORT_PATH` を Unity の iOS エクスポート先に設定して運用する。
+
+## [2025-12-22] makefile の preprocess を Android/iOS に統一
+
+### Context
+`unity-patch` や iOS の Unity ランタイム生成など前処理が増えたため、`make` の入り口を統一して分かりやすくしたい。
+
+### Decision
+- `android-preprocess` と `ios-preprocess` を Makefile に追加し、`make android`/`make ios` はそれぞれの preprocess を先に実行する。
+- iOS preprocess は `unity-patch` 実行後に `ensure-unity-runtime-ios.sh` を実行する。
+
+### Alternatives
+- `unity-patch` を直接 `android`/`ios` の前に書き続ける: 役割が増えるたびに複雑化するため不採用。
+
+### Consequences
+- 前処理の拡張が容易になり、`make` の流れが明確になる。
+
+### Checks
+- `make android`/`make ios` で preprocess が先に実行されること。
+
+### Notes
+- `android-preprocess` は現状 `unity-patch` のみで、将来拡張可能。
+
+## [2025-12-22] iOS preprocess に Podfile パッチと pod install を追加
+
+### Context
+`UnityFrameworkWrapper` Pod を追加したが、Podfile に明示的に追加されず `import UnityFrameworkWrapper` が失敗した。
+
+### Decision
+- `scripts/patch-podfile-unity-runtime.sh` を追加して Podfile に `UnityFrameworkWrapper` を挿入。
+- `ios-preprocess` で `pod install` を実行して依存を反映する。
+
+### Alternatives
+- Expo autolinking に任せる: local Pod 依存の解決ができないため不採用。
+
+### Consequences
+- `make ios` 実行時に Podfile が自動更新される。
+
+### Checks
+- `make ios` で Podfile に `UnityFrameworkWrapper` が追加され、ビルドが進むこと。
+
+### Notes
+- Podfile の target 名は `uaalforexpoexample` を前提に挿入する。
+
+## [2025-12-22] iOS で Unity Data をアプリにコピーするビルドフェーズを追加
+
+### Context
+UnityFramework は組み込めたが、アプリ内に `Data/` がコピーされず `Data bundle not found` で起動に失敗した。
+
+### Decision
+- `patch-podfile-unity-runtime.sh` に `[CP-User] Copy Unity Data to App` を注入し、アプリの Resources に Data をコピーする。
+- Data の参照元は `Pods/UnityFrameworkWrapper/Unity/Data` とローカルの `packages/.../Unity/Data` の両方を試す。
+
+### Alternatives
+- Podspec の script_phase のみでコピー: pod ターゲット内にコピーされるだけでアプリに入らないため不採用。
+
+### Consequences
+- iOS ビルド時に `Data/` が必ず app bundle に入る。
+
+### Checks
+- iOS アプリバンドルに `Data/` が存在すること。
+
+### Notes
+- ビルドフェーズ名は `[CP-User] Copy Unity Data to App`。
+
+## [2025-12-22] UnityRuntime の iOS 公開プロトコル準拠エラー修正
+
+### Context
+iOS ビルドで `UnityFrameworkListener` の要件メソッドが `public` でないというエラーが発生した。
+
+### Decision
+- `UnityRuntime` の UnityFrameworkListener 実装メソッドを `public` に変更してアクセス制御エラーを解消する。
+
+### Alternatives
+- `UnityRuntime` を internal に戻す: Expo モジュール側からの利用に影響するため不採用。
+
+### Consequences
+- UnityFramework 側の公開プロトコルに準拠した実装となる。
+
+### Checks
+- iOS ビルドで `UnityFrameworkListener` の access control エラーが出ないこと。
+
+### Notes
+- UnityFramework のヘッダ警告（umbrella header）は警告のまま。
+
+## [2025-12-22] iOS Unity Data のコピーをアプリターゲットに強制注入
+
+### Context
+Podfile の post_install で Unity Data のコピー用 build phase を追加しているが、Xcode プロジェクト側に反映されず `Data bundle not found` が継続。実際の app bundle に `Data/` が入っていない。
+
+### Decision
+- `scripts/ensure-unity-data-phase.rb` を追加し、`ios/uaalforexpoexample.xcodeproj` の app target に `[CP-User] Copy Unity Data to App` を直接付与する。
+- `make ios-preprocess` で `pod install` 後にこのスクリプトを必ず実行する。
+
+### Alternatives
+- Podfile の post_install のみで完結: 実際の app target に反映されないケースがあるため不採用。
+
+### Consequences
+- iOS ビルド前に必ず app target に Data コピーの build phase が保証される。
+- `Data/` が app bundle に入ることで Unity の初期化失敗を回避できる。
+
+### Checks
+- `ios/uaalforexpoexample.xcodeproj/project.pbxproj` に `[CP-User] Copy Unity Data to App` が存在すること。
+- app bundle に `Data/` が生成されること。
+
+### Notes
+- xcodeproj gem を利用して build phase を追加する。
